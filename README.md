@@ -1,6 +1,6 @@
 # Sticky Keys Hunter
 
-This bash script tests for sticky keys and utilman  backdoors. The script will connect to and RDP server, send both the sticky keys and utilman triggers and screenshot the result.
+This bash script tests for sticky keys and utilman  backdoors. The script will connect to an RDP server, send both the sticky keys and utilman triggers and screenshot the result.
 
 ## How does it work?
 
