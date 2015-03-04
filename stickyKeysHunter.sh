@@ -22,16 +22,28 @@ if [ -z $1 ]; then
     exit 1 
 fi
 
-host=$1
+# Configurable options
 output="output"
+rdesktopSleep=4
+stickyKeysSleep=10
+host=$1
 blue="\e[34m[*]\e[0m"
 red="\e[31m[*]\e[0m"
+green="\e[32m[*]\e[0m"
+temp="/tmp/${host}.$$.png"
+
+function screenshot {
+    screenshot=$1
+    window=$2
+    echo -e "${blue} Saving screenshot to ${screenshot}"
+    import -window ${window} "${screenshot}"
+}
 
 # Launch rdesktop in the background
 echo -e "${blue} Initiating rdesktop connection to ${host}"
 export DISPLAY=:0
-rdesktop -u "" $host 2>&1 &
-sleep 2 # Wait for rdesktop to launch
+rdesktop -u "" $host &
+sleep $rdesktopSleep # Wait for rdesktop to launch
 
 window=$(xdotool search --name rdesktop)
 if [ "${window}" = "" ]; then
@@ -39,7 +51,10 @@ if [ "${window}" = "" ]; then
 else
     # Set our focus to the RDP window
     echo -e "${blue} Setting window focus to ${window}"
-    xdotool windowfocus ${window}
+    xdotool windowfocus "${window}"
+
+    # Take a "before" screenshot
+    #screenshot "${temp}" "${window}"
 
     # Send the shift key 5 times to trigger
     echo -e "${blue} Attempting to trigger sethc.exe backdoor"
@@ -50,21 +65,28 @@ else
     xdotool search --class rdesktop key super+u # Windows key + U
 
     # Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
-    delay=10
-    echo -e "${blue} waiting ${delay} seconds for the backdoors to trigger"
-    sleep $delay
+    echo -e "${blue} waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
+    sleep $stickyKeysSleep
 
     # Screenshot the window using imagemagick
     if [ ! -d "${output}" ]; then
         mkdir "${output}"
     fi
 
-    screenshot="output/${host}.png"
-    echo -e "${blue} Saving screenshot to ${screenshot}"
-    import -window ${window} "${screenshot}"
+    afterScreenshot="output/${host}.png"
+    screenshot "${afterScreenshot}" "${window}"
     
     # Close the rdesktop window
     killall rdesktop 2>/dev/null
 
     # TODO OCR recognition
+    #awk '{sub(/\(/,"", $2); sub(/\)/, "", $2); print $2 * 100}'
+    if [ $(convert "${afterScreenshot}" -colors 5 -unique-colors txt:- | grep -c "#000000") -gt 0 ]; then
+        echo -e "$green ${host} may have a backdoor"
+    else
+        echo -e "$blue ${host} may not have a backdoor"
+    fi
+
+    # Remove temp file
+    #rm "#{temp}"
 fi
