@@ -24,13 +24,13 @@ fi
 
 # Configurable options
 output="output"
-rdesktopSleep=4
+rdesktopSleep=10
 stickyKeysSleep=10
 host=$1
 blue="\e[34m[*]\e[0m"
 red="\e[31m[*]\e[0m"
 green="\e[32m[*]\e[0m"
-temp="/tmp/${host}.$$.png"
+temp="/tmp/${host}.png"
 
 function screenshot {
     screenshot=$1
@@ -39,10 +39,17 @@ function screenshot {
     import -window ${window} "${screenshot}"
 }
 
+function killallRdesktop {
+    killall rdesktop 2>/dev/null
+}
+
+# Make sure we don't have any rdesktop windows open
+killallRdesktop
+
 # Launch rdesktop in the background
 echo -e "${blue} Initiating rdesktop connection to ${host}"
 export DISPLAY=:0
-rdesktop -u "" $host &
+rdesktop -u "" -a 16 $host &
 sleep $rdesktopSleep # Wait for rdesktop to launch
 
 window=$(xdotool search --name rdesktop)
@@ -53,8 +60,26 @@ else
     echo -e "${blue} Setting window focus to ${window}"
     xdotool windowfocus "${window}"
 
-    # Take a "before" screenshot
-    #screenshot "${temp}" "${window}"
+    # If the screen is all black delay 10 seconds
+    while true; do
+        # Make sure the process didn't die
+        pid=$(pidof rdesktop)
+        if [ $? -eq 1 ]; then
+            echo -e "${red} Failed to connect to ${host}"
+            exit 1
+        fi
+        # Screenshot the window and if the only one color is returned (black), give it chance to finish loading
+        screenshot "${temp}" "${window}"
+        colors=$(convert "${temp}" -colors 5 -unique-colors txt:- | grep -v ImageMagick)
+        if [ $(echo "${colors}" | wc -l) -eq 1 ]; then
+            echo -e "${blue} Waiting on desktop to load"
+            sleep 10
+        else
+            # Many colors should mean we've got a colsole loaded
+            break
+        fi
+    done
+    rm ${temp}
 
     # Send the shift key 5 times to trigger
     echo -e "${blue} Attempting to trigger sethc.exe backdoor"
@@ -65,7 +90,7 @@ else
     xdotool search --class rdesktop key super+u # Windows key + U
 
     # Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
-    echo -e "${blue} waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
+    echo -e "${blue} Waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
     sleep $stickyKeysSleep
 
     # Screenshot the window using imagemagick
@@ -77,16 +102,13 @@ else
     screenshot "${afterScreenshot}" "${window}"
     
     # Close the rdesktop window
-    killall rdesktop 2>/dev/null
+    killallRdesktop
 
     # TODO OCR recognition
-    #awk '{sub(/\(/,"", $2); sub(/\)/, "", $2); print $2 * 100}'
+    # The method below isn't accurate enough
     if [ $(convert "${afterScreenshot}" -colors 5 -unique-colors txt:- | grep -c "#000000") -gt 0 ]; then
         echo -e "$green ${host} may have a backdoor"
     else
         echo -e "$blue ${host} may not have a backdoor"
     fi
-
-    # Remove temp file
-    #rm "#{temp}"
 fi
