@@ -24,8 +24,9 @@ fi
 
 # Configurable options
 output="output"
-rdesktopSleep=10
+rdesktopSleep=10 # Adjust the rdesktopSleep to a larger value if you're getting a lot of black screenshots.
 stickyKeysSleep=10
+timeout=30
 host=$1
 blue="\e[34m[*]\e[0m"
 red="\e[31m[*]\e[0m"
@@ -39,33 +40,32 @@ function screenshot {
     import -window ${window} "${screenshot}"
 }
 
-function killallRdesktop {
-    killall rdesktop 2>/dev/null
-}
-
-# Make sure we don't have any rdesktop windows open
-killallRdesktop
-
 # Launch rdesktop in the background
 echo -e "${blue} Initiating rdesktop connection to ${host}"
 export DISPLAY=:0
 rdesktop -u "" -a 16 $host &
+pid=$!
 sleep $rdesktopSleep # Wait for rdesktop to launch
 
-window=$(xdotool search --name rdesktop)
+
+window=$(xdotool search --name ${host})
 if [ "${window}" = "" ]; then
     echo -e "${red} Error retrieving window id for rdesktop"
 else
     # Set our focus to the RDP window
-    echo -e "${blue} Setting window focus to ${window}"
-    xdotool windowfocus "${window}"
+    #echo -e "${blue} Setting window focus to ${window}"
+    #xdotool windowfocus "${window}"
 
     # If the screen is all black delay 10 seconds
+    timer=0
     while true; do
         # Make sure the process didn't die
-        pid=$(pidof rdesktop)
+        kill -0 $pid
         if [ $? -eq 1 ]; then
             echo -e "${red} Failed to connect to ${host}"
+            exit 1
+        elif [ $timer -ge $timeout ]; then
+            echo -e "${red} Timed out connecting to ${host}"
             exit 1
         fi
         # Screenshot the window and if the only one color is returned (black), give it chance to finish loading
@@ -78,16 +78,17 @@ else
             # Many colors should mean we've got a colsole loaded
             break
         fi
+        timer=$((timer + 10))
     done
     rm ${temp}
 
     # Send the shift key 5 times to trigger
     echo -e "${blue} Attempting to trigger sethc.exe backdoor"
-    xdotool search --class rdesktop key shift shift shift shift shift
+    xdotool key --window ${window} shift shift shift shift shift
 
     # Send the shift key 5 times to trigger
     echo -e "${blue} Attempting to trigger utilman.exe backdoor"
-    xdotool search --class rdesktop key super+u # Windows key + U
+    xdotool key --window ${window} super+u # Windows key + U
 
     # Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
     echo -e "${blue} Waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
@@ -102,7 +103,7 @@ else
     screenshot "${afterScreenshot}" "${window}"
     
     # Close the rdesktop window
-    killallRdesktop
+    kill $pid
 
     # TODO OCR recognition
     # The method below isn't accurate enough
