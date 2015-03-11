@@ -60,7 +60,7 @@ else
     timer=0
     while true; do
         # Make sure the process didn't die
-        kill -0 $pid
+        kill -0 $pid 2>/dev/null
         if [ $? -eq 1 ]; then
             echo -e "${red} Failed to connect to ${host}"
             exit 1
