@@ -24,9 +24,10 @@ fi
 
 # Configurable options
 output="output"
-rdesktopSleep=10 # Adjust the rdesktopSleep to a larger value if you're getting a lot of black screenshots.
-stickyKeysSleep=10
-timeout=30
+rdesktopSleep=5 # Adjust the rdesktopSleep to a larger value if you're getting a lot of black screenshots.
+stickyKeysSleep=5
+timeout=60
+timeoutStep=2
 host=$1
 blue="\e[34m[*]\e[0m"
 red="\e[31m[*]\e[0m"
@@ -40,76 +41,99 @@ function screenshot {
     import -window ${window} "${screenshot}"
 }
 
+function moveMouse {
+    xdotool mousemove 0 0
+    xdotool mousemove 100 100
+}
+
+function isAlive {
+    pid=$1
+    timer=$2
+
+    kill -0 $pid 2>/dev/null
+
+    if [ $? -eq 1 ]; then
+        echo -e "${red} Failed to connect to ${host}"
+        exit 1
+    elif [ $timer -ge $timeout ]; then
+        echo -e "${red} Timed out connecting to ${host}"
+        exit 1
+    fi
+}
+
+function getWindowId {
+    host=$1
+    window=$(xdotool search --name ${host})
+    if [ "${window}" = "" ]; then
+        echo -e "${red} Error retrieving window id for rdesktop"
+    fi
+
+    echo $window
+}
+    
+export DISPLAY=:0
+moveMouse
+
 # Launch rdesktop in the background
 echo -e "${blue} Initiating rdesktop connection to ${host}"
-export DISPLAY=:0
 rdesktop -u "" -a 16 $host &
 pid=$!
 sleep $rdesktopSleep # Wait for rdesktop to launch
 
+window=$(getWindowId "${host}")
 
-window=$(xdotool search --name ${host})
-if [ "${window}" = "" ]; then
-    echo -e "${red} Error retrieving window id for rdesktop"
-else
-    # Set our focus to the RDP window
-    #echo -e "${blue} Setting window focus to ${window}"
-    #xdotool windowfocus "${window}"
+# Set our focus to the RDP window
+echo -e "${blue} Setting window focus to ${window}"
+xdotool windowfocus "${window}"
 
-    # If the screen is all black delay 10 seconds
-    timer=0
-    while true; do
-        # Make sure the process didn't die
-        kill -0 $pid 2>/dev/null
-        if [ $? -eq 1 ]; then
-            echo -e "${red} Failed to connect to ${host}"
-            exit 1
-        elif [ $timer -ge $timeout ]; then
-            echo -e "${red} Timed out connecting to ${host}"
-            exit 1
-        fi
-        # Screenshot the window and if the only one color is returned (black), give it chance to finish loading
-        screenshot "${temp}" "${window}"
-        colors=$(convert "${temp}" -colors 5 -unique-colors txt:- | grep -v ImageMagick)
-        if [ $(echo "${colors}" | wc -l) -eq 1 ]; then
-            echo -e "${blue} Waiting on desktop to load"
-            sleep 10
-        else
-            # Many colors should mean we've got a colsole loaded
-            break
-        fi
-        timer=$((timer + 10))
-    done
-    rm ${temp}
+# If the screen is all black delay timeoutStep seconds
+timer=0
+while true; do
 
-    # Send the shift key 5 times to trigger
-    echo -e "${blue} Attempting to trigger sethc.exe backdoor"
-    xdotool key --window ${window} shift shift shift shift shift
+    # Make sure the process didn't die
+    isAlive $pid $timer
 
-    # Send the shift key 5 times to trigger
-    echo -e "${blue} Attempting to trigger utilman.exe backdoor"
-    xdotool key --window ${window} super+u # Windows key + U
-
-    # Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
-    echo -e "${blue} Waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
-    sleep $stickyKeysSleep
-
-    # Screenshot the window using imagemagick
-    if [ ! -d "${output}" ]; then
-        mkdir "${output}"
-    fi
-
-    afterScreenshot="output/${host}.png"
-    screenshot "${afterScreenshot}" "${window}"
-    
-    # Close the rdesktop window
-    kill $pid
-
-    # TODO OCR recognition
-    # The method below isn't accurate enough
-    if [ $(convert "${afterScreenshot}" -colors 5 -unique-colors txt:- | grep -c "#000000") -gt 0 ]; then
-        echo -e "$green ${host} may have a backdoor"
+    # Screenshot the window and if the only one color is returned (black), give it chance to finish loading
+    screenshot "${temp}" "${window}"
+    colors=$(convert "${temp}" -colors 5 -unique-colors txt:- | grep -v ImageMagick)
+    if [ $(echo "${colors}" | wc -l) -eq 1 ]; then
+        echo -e "${blue} Waiting on desktop to load"
+        sleep $timeoutStep
     else
-        echo -e "$blue ${host} may not have a backdoor"
+        # Many colors should mean we've got a colsole loaded
+        break
     fi
+    timer=$((timer + timeoutStep))
+done
+rm ${temp}
+
+# Send the shift key 5 times to trigger
+echo -e "${blue} Attempting to trigger sethc.exe backdoor"
+xdotool key --window ${window} shift shift shift shift shift
+
+# Send the shift key 5 times to trigger
+echo -e "${blue} Attempting to trigger utilman.exe backdoor"
+xdotool key --window ${window} super+u # Windows key + u
+
+# Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
+echo -e "${blue} Waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
+sleep $stickyKeysSleep
+
+# Screenshot the window using imagemagick
+if [ ! -d "${output}" ]; then
+    mkdir "${output}"
 fi
+
+afterScreenshot="output/${host}.png"
+screenshot "${afterScreenshot}" "${window}"
+
+# Close the rdesktop window
+kill $pid
+
+# TODO OCR recognition
+# The method below isn't accurate enough
+#if [ $(convert "${afterScreenshot}" -colors 5 -unique-colors txt:- | grep -c "#000000") -gt 0 ]; then
+#    echo -e "$green ${host} may have a backdoor"
+#else
+#    echo -e "$blue ${host} may not have a backdoor"
+#fi

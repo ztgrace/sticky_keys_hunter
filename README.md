@@ -15,6 +15,7 @@ This bash script tests for sticky keys and utilman  backdoors. The script will c
 1. Linux host running an X server
 2. The following packages: xdotool imagemagick rdesktop
     3. Debian/Ubuntu/Kali install: `apt-get install xdotool imagemagick rdesktop`
+3. Screen cannot be locked during this process or all of the screenshots will turn out black
 
 ## Usage
 
