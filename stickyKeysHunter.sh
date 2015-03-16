@@ -24,8 +24,7 @@ fi
 
 # Configurable options
 output="output"
-rdesktopSleep=5 # Adjust the rdesktopSleep to a larger value if you're getting a lot of black screenshots.
-stickyKeysSleep=5
+stickyKeysSleep=7
 timeout=60
 timeoutStep=2
 host=$1
@@ -48,29 +47,22 @@ function moveMouse {
 
 function isAlive {
     pid=$1
-    timer=$2
-
     kill -0 $pid 2>/dev/null
-
     if [ $? -eq 1 ]; then
-        echo -e "${red} Failed to connect to ${host}"
+        echo -e "${red} Process died, failed to connect to ${host}"
         exit 1
-    elif [ $timer -ge $timeout ]; then
+    fi
+}
+
+function isTimedOut {
+    t=$1
+    if [ $t -ge $timeout ]; then
         echo -e "${red} Timed out connecting to ${host}"
+        kill $!
         exit 1
     fi
 }
 
-function getWindowId {
-    host=$1
-    window=$(xdotool search --name ${host})
-    if [ "${window}" = "" ]; then
-        echo -e "${red} Error retrieving window id for rdesktop"
-    fi
-
-    echo $window
-}
-    
 export DISPLAY=:0
 moveMouse
 
@@ -78,9 +70,24 @@ moveMouse
 echo -e "${blue} Initiating rdesktop connection to ${host}"
 rdesktop -u "" -a 16 $host &
 pid=$!
-sleep $rdesktopSleep # Wait for rdesktop to launch
 
-window=$(getWindowId "${host}")
+# Get window id
+window=
+timer=0
+while true; do
+    # Check to see if we timed out
+    isTimedOut $(printf "%.0f" $timer)
+
+    # Check to see if the process is still alive
+    isAlive $pid
+    window=$(xdotool search --name ${host})
+    if [ ! "${window}" = "" ]; then
+        echo -e "${blue} Got window id: ${window}"
+        break
+    fi
+    timer=$(echo "$timer + 0.1" | bc)
+    sleep 0.1
+done
 
 # Set our focus to the RDP window
 echo -e "${blue} Setting window focus to ${window}"
@@ -91,7 +98,9 @@ timer=0
 while true; do
 
     # Make sure the process didn't die
-    isAlive $pid $timer
+    isAlive $pid
+
+    isTimedOut $timer
 
     # Screenshot the window and if the only one color is returned (black), give it chance to finish loading
     screenshot "${temp}" "${window}"
@@ -107,13 +116,16 @@ while true; do
 done
 rm ${temp}
 
+# Some systems seemed to need a bit more time to load before they accepted input
+sleep 2
+
 # Send the shift key 5 times to trigger
 echo -e "${blue} Attempting to trigger sethc.exe backdoor"
 xdotool key --window ${window} shift shift shift shift shift
 
-# Send the shift key 5 times to trigger
+# Send Windows key + u to trigger utilman.exe
 echo -e "${blue} Attempting to trigger utilman.exe backdoor"
-xdotool key --window ${window} super+u # Windows key + u
+xdotool key --window ${window} super+u
 
 # Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
 echo -e "${blue} Waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
@@ -131,9 +143,3 @@ screenshot "${afterScreenshot}" "${window}"
 kill $pid
 
 # TODO OCR recognition
-# The method below isn't accurate enough
-#if [ $(convert "${afterScreenshot}" -colors 5 -unique-colors txt:- | grep -c "#000000") -gt 0 ]; then
-#    echo -e "$green ${host} may have a backdoor"
-#else
-#    echo -e "$blue ${host} may not have a backdoor"
-#fi
