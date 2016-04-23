@@ -136,7 +136,7 @@ if [ ! -d "${output}" ]; then
     mkdir "${output}"
 fi
 
-afterScreenshot="output/${host}.png"
+afterScreenshot="${output}/${host}.png"
 screenshot "${afterScreenshot}" "${window}"
 
 # Close the rdesktop window
