@@ -109,7 +109,8 @@ while true; do
         echo -e "${blue} Waiting on desktop to load"
         sleep $timeoutStep
     else
-        # Many colors should mean we've got a colsole loaded
+        # Many colors should mean we've got a console loaded
+	echo -e "${green} Console Loaded for ${host}"
         break
     fi
     timer=$((timer + timeoutStep))
