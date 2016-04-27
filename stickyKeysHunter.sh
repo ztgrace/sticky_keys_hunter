@@ -109,7 +109,8 @@ while true; do
         echo -e "${blue} Waiting on desktop to load"
         sleep $timeoutStep
     else
-        # Many colors should mean we've got a colsole loaded
+        # Many colors should mean we've got a console loaded
+	echo -e "${green} Console Loaded for ${host}"
         break
     fi
     timer=$((timer + timeoutStep))
@@ -119,13 +120,26 @@ rm ${temp}
 # Some systems seemed to need a bit more time to load before they accepted input
 sleep 2
 
-# Send the shift key 5 times to trigger
-echo -e "${blue} Attempting to trigger sethc.exe backdoor"
-xdotool key --window ${window} shift shift shift shift shift
+# Send Windows key + p to trigger displayswitch.exe
+echo -e "${blue} Attempting to trigger displayswitch.exe backdoor"
+xdotool key --window ${window} super+p
+
+# Send Windows key + = to trigger magnifier.exe, also Windows Key + - to reverse magnify effect
+echo -e "${blue} Attempting to trigger magnifier.exe backdoor"
+xdotool key --window ${window} super+equal
+xdotool key --window ${window} super+minus
+
+# Send Windows key + Enter to trigger narrator.exe
+echo -e "${blue} Attempting to trigger narrator.exe backdoor"
+xdotool key --window ${window} super+Return
 
 # Send Windows key + u to trigger utilman.exe
 echo -e "${blue} Attempting to trigger utilman.exe backdoor"
 xdotool key --window ${window} super+u
+
+# Send shift key 5 times to trigger sethc.exe
+echo -e "${blue} Attempting to trigger sethc.exe backdoor"
+xdotool key --window ${window} shift shift shift shift shift
 
 # Seems to be a delay if cmd.exe is set as the debugger this probably needs some tweaking
 echo -e "${blue} Waiting ${stickyKeysSleep} seconds for the backdoors to trigger"
