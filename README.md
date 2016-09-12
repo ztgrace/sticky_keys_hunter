@@ -1,6 +1,9 @@
 # Sticky Keys Hunter
 
-This bash script tests for sticky keys and utilman  backdoors. The script will connect to an RDP server, send both the sticky keys and utilman triggers and screenshot the result.
+This POC bash script tests for sticky keys and utilman  backdoors. The script will connect to an RDP server, send both the sticky keys and utilman triggers and screenshot the result.
+
+This script was written to prove a theory I had about detecting these backdoors in a blackbox fashion, and hasn't been updated since I wrote my blog post, [Hunting Sticky Keys Backdoors](http://zachgrace.com/2015/03/23/hunting-sticky-keys-backdoors.html). However,
+[@DennisMald](https://twitter.com/DennisMald) and [@notmedic](https://twitter.com/notmedic) furthered this research and released the [Sticky Keys Slayer](https://github.com/linuz/Sticky-Keys-Slayer) tool at their DEF CON 24 presentation, [Sticky Keys To The Kingdom](http://www.slideshare.net/DennisMaldonado5/sticky-keys-to-the-kingdom). Check out their tool as it has many improvements over this POC script.
 
 ## How does it work?
 
